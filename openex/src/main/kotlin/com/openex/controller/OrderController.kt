@@ -23,20 +23,21 @@ class OrderController(
     private val idempotencyService: IdempotencyService,
     private val objectMapper: ObjectMapper,
 ) {
-
     @PostMapping
     fun createOrder(
         @Valid @RequestBody request: CreateOrderRequest,
         httpRequest: HttpServletRequest,
     ): ResponseEntity<String> {
         val userId = CurrentUser.id()
-        val idempotencyKey = httpRequest.getHeader("Idempotency-Key")
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key header is required")
+        val idempotencyKey =
+            httpRequest.getHeader("Idempotency-Key")
+                ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key header is required")
 
         val requestHash = idempotencyService.hashOf(request)
 
         idempotencyService.lookup(idempotencyKey, requestHash)?.let { cached ->
-            return ResponseEntity.status(cached.status)
+            return ResponseEntity
+                .status(cached.status)
                 .header("Idempotency-Replayed", "true")
                 .body(cached.body)
         }

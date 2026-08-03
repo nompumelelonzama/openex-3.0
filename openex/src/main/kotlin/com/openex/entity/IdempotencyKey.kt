@@ -13,19 +13,14 @@ class IdempotencyKey(
     @Id
     @Column(name = "idempotency_key")
     val idempotencyKey: String,
-
     @Column(name = "user_id", nullable = false)
     val userId: UUID,
-
     @Column(name = "request_hash", nullable = false)
     val requestHash: String,
-
     @Column(name = "response_status", nullable = false)
     val responseStatus: Int,
-
     @Column(name = "response_body", nullable = false, columnDefinition = "TEXT")
     val responseBody: String,
-
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
 )

@@ -7,10 +7,10 @@ import com.openex.entity.User
 import com.openex.repository.UserRepository
 import com.openex.security.JwtService
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpStatus
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
-import org.springframework.http.HttpStatus
 
 @Service
 class AuthService(
@@ -19,19 +19,19 @@ class AuthService(
     private val jwtService: JwtService,
     private val walletService: WalletService,
 ) {
-
     fun register(request: RegisterRequest): AuthResponse {
         if (userRepository.existsByEmail(request.email)) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "Email already registered")
         }
 
-        val user = try {
-            userRepository.save(
-                User(email = request.email, passwordHash = passwordEncoder.encode(request.password)),
-            )
-        } catch (e: DataIntegrityViolationException) {
-            throw ResponseStatusException(HttpStatus.CONFLICT, "Email already registered")
-        }
+        val user =
+            try {
+                userRepository.save(
+                    User(email = request.email, passwordHash = passwordEncoder.encode(request.password)),
+                )
+            } catch (e: DataIntegrityViolationException) {
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Email already registered")
+            }
 
         // Give every new user USD and BTC wallets so the trading UI has something to show.
         walletService.ensureAccount(user.id, "USD")
@@ -42,8 +42,9 @@ class AuthService(
     }
 
     fun login(request: LoginRequest): AuthResponse {
-        val user = userRepository.findByEmail(request.email)
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials")
+        val user =
+            userRepository.findByEmail(request.email)
+                ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials")
 
         if (!passwordEncoder.matches(request.password, user.passwordHash)) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials")

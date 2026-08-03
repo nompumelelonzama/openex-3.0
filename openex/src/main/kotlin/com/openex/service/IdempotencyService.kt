@@ -26,7 +26,18 @@ class IdempotencyService(
 ) {
     private val redisTtl = Duration.ofHours(24)
 
-    data class CachedResponse(val status: Int, val body: String)
+    data class CachedResponse(
+        val status: Int,
+        val body: String,
+    )
+
+    // Stored in Redis so a replay can be validated against the *same* body that was
+    // originally cached, without needing to hit Postgres for the common case.
+    private data class CachedEntry(
+        val requestHash: String,
+        val status: Int,
+        val body: String,
+    )
 
     fun hashOf(requestBody: Any): String {
         val json = objectMapper.writeValueAsString(requestBody)
@@ -38,10 +49,21 @@ class IdempotencyService(
      * Returns the cached response for [key] if one exists. Throws 409 if the same key
      * was used with a *different* request body (protects against accidental key reuse).
      */
-    fun lookup(key: String, requestHash: String): CachedResponse? {
+    fun lookup(
+        key: String,
+        requestHash: String,
+    ): CachedResponse? {
         redisTemplate.opsForValue().get(redisCacheKey(key))?.let { cached ->
-            val parsed = objectMapper.readValue(cached, CachedResponse::class.java)
-            return parsed
+            val entry = objectMapper.readValue(cached, CachedEntry::class.java)
+
+            if (entry.requestHash != requestHash) {
+                throw ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Idempotency-Key '$key' was already used with a different request body",
+                )
+            }
+
+            return CachedResponse(entry.status, entry.body)
         }
 
         val existing = idempotencyKeyRepository.findById(key).orElse(null) ?: return null
@@ -54,12 +76,18 @@ class IdempotencyService(
         }
 
         val response = CachedResponse(existing.responseStatus, existing.responseBody)
-        cacheInRedis(key, response)
+        cacheInRedis(key, requestHash, response)
         return response
     }
 
     @Transactional
-    fun store(key: String, userId: UUID, requestHash: String, status: Int, body: String) {
+    fun store(
+        key: String,
+        userId: UUID,
+        requestHash: String,
+        status: Int,
+        body: String,
+    ) {
         idempotencyKeyRepository.save(
             IdempotencyKey(
                 idempotencyKey = key,
@@ -69,11 +97,16 @@ class IdempotencyService(
                 responseBody = body,
             ),
         )
-        cacheInRedis(key, CachedResponse(status, body))
+        cacheInRedis(key, requestHash, CachedResponse(status, body))
     }
 
-    private fun cacheInRedis(key: String, response: CachedResponse) {
-        redisTemplate.opsForValue().set(redisCacheKey(key), objectMapper.writeValueAsString(response), redisTtl)
+    private fun cacheInRedis(
+        key: String,
+        requestHash: String,
+        response: CachedResponse,
+    ) {
+        val entry = CachedEntry(requestHash, response.status, response.body)
+        redisTemplate.opsForValue().set(redisCacheKey(key), objectMapper.writeValueAsString(entry), redisTtl)
     }
 
     private fun redisCacheKey(key: String) = "idempotency:$key"

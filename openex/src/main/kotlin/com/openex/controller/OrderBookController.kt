@@ -14,6 +14,7 @@ class OrderBookController(
 ) {
     /** One-shot snapshot for initial page load; live updates come over /topic/orderbook/{symbol}. */
     @GetMapping("/{symbol}")
-    fun getSnapshot(@PathVariable symbol: String): OrderBookSnapshot =
-        matchingEngineService.currentSnapshot(symbol)
+    fun getSnapshot(
+        @PathVariable symbol: String,
+    ): OrderBookSnapshot = matchingEngineService.currentSnapshot(symbol)
 }

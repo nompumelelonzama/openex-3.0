@@ -1,8 +1,8 @@
 package com.openex.security
 
+import org.springframework.http.HttpStatus
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.server.ResponseStatusException
-import org.springframework.http.HttpStatus
 import java.util.UUID
 
 /** JwtAuthFilter stores the authenticated user's id as the Authentication principal. */

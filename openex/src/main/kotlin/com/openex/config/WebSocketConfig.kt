@@ -9,7 +9,6 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 class WebSocketConfig : WebSocketMessageBrokerConfigurer {
-
     override fun configureMessageBroker(registry: MessageBrokerRegistry) {
         // Clients subscribe to /topic/orderbook/{symbol}; this feature is broadcast-only,
         // so no /app-prefixed inbound handling is required yet.

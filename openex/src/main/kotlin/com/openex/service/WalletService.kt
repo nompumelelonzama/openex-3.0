@@ -20,7 +20,10 @@ class WalletService(
     }
 
     @Transactional
-    fun ensureAccount(userId: UUID, currency: String): Account =
+    fun ensureAccount(
+        userId: UUID,
+        currency: String,
+    ): Account =
         accountRepository.findByUserIdAndCurrency(userId, currency)
             ?: accountRepository.save(Account(userId = userId, currency = currency))
 
@@ -28,7 +31,11 @@ class WalletService(
 
     /** The simulated-funds "faucet". Money is minted from the system account for [currency]. */
     @Transactional
-    fun deposit(userId: UUID, currency: String, amount: BigDecimal): BalanceResponse {
+    fun deposit(
+        userId: UUID,
+        currency: String,
+        amount: BigDecimal,
+    ): BalanceResponse {
         require(amount > BigDecimal.ZERO) { "Deposit amount must be positive" }
 
         val userAccount = ensureAccount(userId, currency)

@@ -37,10 +37,12 @@ class MatchingEngineService(
     private class OrderBook {
         // Bids: highest price first -> reverseOrder comparator
         val bids = TreeMap<BigDecimal, ArrayDeque<Order>>(Comparator.reverseOrder())
+
         // Asks: lowest price first -> natural order
         val asks = TreeMap<BigDecimal, ArrayDeque<Order>>()
 
         fun sideFor(side: OrderSide) = if (side == OrderSide.BUY) bids else asks
+
         fun oppositeSideFor(side: OrderSide) = if (side == OrderSide.BUY) asks else bids
 
         fun add(order: Order) {
@@ -62,7 +64,10 @@ class MatchingEngineService(
             return entry.value.peekFirst()
         }
 
-        fun popBestOppositeIfFilled(side: OrderSide, order: Order) {
+        fun popBestOppositeIfFilled(
+            side: OrderSide,
+            order: Order,
+        ) {
             val opposite = oppositeSideFor(side)
             val entry = opposite.firstEntry() ?: return
             if (entry.value.peekFirst() === order) {
@@ -71,7 +76,10 @@ class MatchingEngineService(
             }
         }
 
-        fun levels(side: TreeMap<BigDecimal, ArrayDeque<Order>>, depth: Int): List<PriceLevel> =
+        fun levels(
+            side: TreeMap<BigDecimal, ArrayDeque<Order>>,
+            depth: Int,
+        ): List<PriceLevel> =
             side.entries.take(depth).map { (price, orders) ->
                 PriceLevel(
                     price = price,
@@ -80,14 +88,17 @@ class MatchingEngineService(
                 )
             }
 
-        fun snapshot(symbol: String, depth: Int = 20): OrderBookSnapshot =
-            OrderBookSnapshot(symbol = symbol, bids = levels(bids, depth), asks = levels(asks, depth))
+        fun snapshot(
+            symbol: String,
+            depth: Int = 20,
+        ): OrderBookSnapshot = OrderBookSnapshot(symbol = symbol, bids = levels(bids, depth), asks = levels(asks, depth))
     }
 
     private val books = ConcurrentHashMap<String, OrderBook>()
     private val locks = ConcurrentHashMap<String, ReentrantLock>()
 
     private fun bookFor(symbol: String) = books.getOrPut(symbol) { OrderBook() }
+
     private fun lockFor(symbol: String) = locks.getOrPut(symbol) { ReentrantLock() }
 
     /** Returns the (now-updated) incoming order after matching, either resting, filled, or partially filled. */
@@ -104,11 +115,12 @@ class MatchingEngineService(
                     orderRepository.save(incoming)
                 } else {
                     // MARKET order with no remaining liquidity to match: cancel the unfilled remainder.
-                    incoming.status = if (incoming.remainingQuantity.compareTo(incoming.quantity) == 0) {
-                        OrderStatus.CANCELLED
-                    } else {
-                        OrderStatus.PARTIALLY_FILLED
-                    }
+                    incoming.status =
+                        if (incoming.remainingQuantity.compareTo(incoming.quantity) == 0) {
+                            OrderStatus.CANCELLED
+                        } else {
+                            OrderStatus.PARTIALLY_FILLED
+                        }
                     orderRepository.save(incoming)
                 }
             }
@@ -120,7 +132,10 @@ class MatchingEngineService(
         }
     }
 
-    private fun crosses(incoming: Order, restingPrice: BigDecimal): Boolean {
+    private fun crosses(
+        incoming: Order,
+        restingPrice: BigDecimal,
+    ): Boolean {
         if (incoming.type == OrderType.MARKET) return true
         val incomingPrice = incoming.price ?: return false
         return if (incoming.side == OrderSide.BUY) {
@@ -130,7 +145,10 @@ class MatchingEngineService(
         }
     }
 
-    private fun matchAgainstBook(book: OrderBook, incoming: Order) {
+    private fun matchAgainstBook(
+        book: OrderBook,
+        incoming: Order,
+    ) {
         while (incoming.remainingQuantity > BigDecimal.ZERO) {
             val resting = book.bestOpposite(incoming.side) ?: break
             val matchPrice = requireNotNull(resting.price) { "Resting order must be a LIMIT order with a price" }

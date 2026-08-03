@@ -13,34 +13,38 @@ import java.util.UUID
 class OrderService(
     private val matchingEngineService: MatchingEngineService,
 ) {
-
-    fun createOrder(userId: UUID, request: CreateOrderRequest): OrderResponse {
+    fun createOrder(
+        userId: UUID,
+        request: CreateOrderRequest,
+    ): OrderResponse {
         if (request.type == OrderType.LIMIT && request.price == null) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "price is required for LIMIT orders")
         }
 
-        val order = Order(
-            userId = userId,
-            symbol = request.symbol,
-            side = request.side,
-            type = request.type,
-            price = if (request.type == OrderType.LIMIT) request.price else null,
-            quantity = request.quantity,
-            remainingQuantity = request.quantity,
-        )
+        val order =
+            Order(
+                userId = userId,
+                symbol = request.symbol,
+                side = request.side,
+                type = request.type,
+                price = if (request.type == OrderType.LIMIT) request.price else null,
+                quantity = request.quantity,
+                remainingQuantity = request.quantity,
+            )
 
         val result = matchingEngineService.submit(order)
         return result.toResponse()
     }
 }
 
-fun Order.toResponse() = OrderResponse(
-    id = id,
-    symbol = symbol,
-    side = side,
-    type = type,
-    price = price,
-    quantity = quantity,
-    remainingQuantity = remainingQuantity,
-    status = status,
-)
+fun Order.toResponse() =
+    OrderResponse(
+        id = id,
+        symbol = symbol,
+        side = side,
+        type = type,
+        price = price,
+        quantity = quantity,
+        remainingQuantity = remainingQuantity,
+        status = status,
+    )

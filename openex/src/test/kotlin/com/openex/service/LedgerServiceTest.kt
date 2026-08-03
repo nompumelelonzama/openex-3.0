@@ -12,14 +12,23 @@ import java.math.BigDecimal
 import java.util.UUID
 
 /**
- * Pure unit tests against a mocked repository — no Spring context needed.
+ * Pure unit tests against a mocked repository -- no Spring context needed.
  * See OrderIdempotencyIntegrationTest / MatchingEngineServiceTest for tests
  * that run against a real Postgres instance and check actual persisted rows.
  */
 class LedgerServiceTest {
-
     private val repo = mockk<LedgerEntryRepository>(relaxed = true)
     private val ledgerService = LedgerService(repo)
+
+    init {
+        // LedgerEntryRepository.save() has a generic return type (Spring Data's
+        // <S extends T> S save(S entity)), which relaxed MockK mocks can't resolve
+        // on their own -- without an explicit stub, the compiled checkcast on the
+        // (discarded) return value throws ClassCastException. This default stub
+        // just echoes back whatever was passed in, which is fine since these tests
+        // never rely on the *return value* of save() -- only that it was called.
+        every { repo.save(any()) } answers { firstArg() }
+    }
 
     @Test
     fun `balanced transaction posts one CREDIT and one DEBIT that sum to zero`() {
@@ -33,9 +42,10 @@ class LedgerServiceTest {
         ledgerService.transfer(from, to, BigDecimal("40.00000000"))
 
         assertEquals(2, savedLines.size)
-        val net = savedLines.fold(BigDecimal.ZERO) { acc, e ->
-            acc + if (e.direction == EntryDirection.CREDIT) e.amount else e.amount.negate()
-        }
+        val net =
+            savedLines.fold(BigDecimal.ZERO) { acc, e ->
+                acc + if (e.direction == EntryDirection.CREDIT) e.amount else e.amount.negate()
+            }
         assertEquals(0, net.compareTo(BigDecimal.ZERO), "ledger entries for a transaction must net to zero")
 
         val debit = savedLines.first { it.direction == EntryDirection.DEBIT }

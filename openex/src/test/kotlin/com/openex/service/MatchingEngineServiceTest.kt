@@ -23,13 +23,20 @@ import java.util.concurrent.TimeUnit
  * so we can assert on price-time priority and concurrency without a live Postgres.
  */
 class MatchingEngineServiceTest {
-
     private val orderRepository = mockk<OrderRepository>(relaxed = true)
     private val settlement = mockk<TradeSettlementService>()
     private val broadcastService = mockk<OrderBookBroadcastService>(relaxed = true)
     private val engine = MatchingEngineService(orderRepository, settlement, broadcastService)
 
     init {
+        // OrderRepository.save() has a generic return type (Spring Data's
+        // <S extends T> S save(S entity)), which relaxed MockK mocks can't resolve
+        // on their own -- without an explicit stub, the compiled checkcast on the
+        // (discarded) return value throws ClassCastException. This default stub
+        // just echoes back whatever was passed in, since these tests never rely on
+        // the *return value* of save() -- only that it was called (or not called).
+        every { orderRepository.save(any()) } answers { firstArg() }
+
         val buySlot = slot<Order>()
         val sellSlot = slot<Order>()
         val priceSlot = slot<BigDecimal>()
@@ -47,7 +54,12 @@ class MatchingEngineServiceTest {
         }
     }
 
-    private fun limitOrder(side: OrderSide, price: String, qty: String, symbol: String = "BTC-USD") = Order(
+    private fun limitOrder(
+        side: OrderSide,
+        price: String,
+        qty: String,
+        symbol: String = "BTC-USD",
+    ) = Order(
         userId = UUID.randomUUID(),
         symbol = symbol,
         side = side,
@@ -97,17 +109,18 @@ class MatchingEngineServiceTest {
         val incomingBuy = limitOrder(OrderSide.BUY, "101", "2")
         engine.submit(incomingBuy)
 
-        assertEquals(OrderStatus.FILLED, betterPrice.status)   // best price (99) filled first
-        assertEquals(OrderStatus.FILLED, earlierAtTie.status)  // then earliest at the tie price (100)
-        assertEquals(OrderStatus.OPEN, laterAtTie.status)      // later tie order untouched
-        assertEquals(OrderStatus.OPEN, worsePrice.status)      // worst price untouched
+        assertEquals(OrderStatus.FILLED, betterPrice.status) // best price (99) filled first
+        assertEquals(OrderStatus.FILLED, earlierAtTie.status) // then earliest at the tie price (100)
+        assertEquals(OrderStatus.OPEN, laterAtTie.status) // later tie order untouched
+        assertEquals(OrderStatus.OPEN, worsePrice.status) // worst price untouched
     }
 
     @Test
     fun `10 concurrent orders on the same symbol settle without lost or duplicated fills`() {
         // 5 sell orders of qty 1 at price 100, 5 buy orders of qty 1 at price 100, fired concurrently.
-        val orders = (1..5).map { limitOrder(OrderSide.SELL, "100", "1") } +
-            (1..5).map { limitOrder(OrderSide.BUY, "100", "1") }
+        val orders =
+            (1..5).map { limitOrder(OrderSide.SELL, "100", "1") } +
+                (1..5).map { limitOrder(OrderSide.BUY, "100", "1") }
 
         val pool: ExecutorService = Executors.newFixedThreadPool(10)
         val startGate = CountDownLatch(1)

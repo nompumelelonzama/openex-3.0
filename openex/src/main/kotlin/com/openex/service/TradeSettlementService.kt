@@ -24,7 +24,6 @@ class TradeSettlementService(
     private val orderRepository: OrderRepository,
     private val tradeRepository: TradeRepository,
 ) {
-
     /** symbol is expected in "BASE-QUOTE" form, e.g. "BTC-USD". */
     private fun parseSymbol(symbol: String): Pair<String, String> {
         val parts = symbol.split("-")
@@ -33,7 +32,12 @@ class TradeSettlementService(
     }
 
     @Transactional
-    fun settle(buyOrder: Order, sellOrder: Order, matchPrice: BigDecimal, matchQuantity: BigDecimal) {
+    fun settle(
+        buyOrder: Order,
+        sellOrder: Order,
+        matchPrice: BigDecimal,
+        matchQuantity: BigDecimal,
+    ) {
         val (base, quote) = parseSymbol(buyOrder.symbol)
 
         val buyerBaseAccount = walletService.ensureAccount(buyOrder.userId, base)
@@ -43,16 +47,17 @@ class TradeSettlementService(
 
         val quoteAmount = matchPrice.multiply(matchQuantity)
 
-        val txId = ledgerService.postTransaction(
-            listOf(
-                // Buyer pays quote currency, receives base asset.
-                LedgerService.LedgerLine(buyerQuoteAccount.id, quoteAmount, EntryDirection.DEBIT, "trade: pay quote"),
-                LedgerService.LedgerLine(sellerQuoteAccount.id, quoteAmount, EntryDirection.CREDIT, "trade: receive quote"),
-                // Seller delivers base asset, buyer receives it.
-                LedgerService.LedgerLine(sellerBaseAccount.id, matchQuantity, EntryDirection.DEBIT, "trade: deliver base"),
-                LedgerService.LedgerLine(buyerBaseAccount.id, matchQuantity, EntryDirection.CREDIT, "trade: receive base"),
-            ),
-        )
+        val txId =
+            ledgerService.postTransaction(
+                listOf(
+                    // Buyer pays quote currency, receives base asset.
+                    LedgerService.LedgerLine(buyerQuoteAccount.id, quoteAmount, EntryDirection.DEBIT, "trade: pay quote"),
+                    LedgerService.LedgerLine(sellerQuoteAccount.id, quoteAmount, EntryDirection.CREDIT, "trade: receive quote"),
+                    // Seller delivers base asset, buyer receives it.
+                    LedgerService.LedgerLine(sellerBaseAccount.id, matchQuantity, EntryDirection.DEBIT, "trade: deliver base"),
+                    LedgerService.LedgerLine(buyerBaseAccount.id, matchQuantity, EntryDirection.CREDIT, "trade: receive base"),
+                ),
+            )
 
         applyFill(buyOrder, matchQuantity)
         applyFill(sellOrder, matchQuantity)
@@ -71,13 +76,17 @@ class TradeSettlementService(
         )
     }
 
-    private fun applyFill(order: Order, filledQuantity: BigDecimal) {
+    private fun applyFill(
+        order: Order,
+        filledQuantity: BigDecimal,
+    ) {
         order.remainingQuantity = order.remainingQuantity.subtract(filledQuantity)
-        order.status = if (order.remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-            OrderStatus.FILLED
-        } else {
-            OrderStatus.PARTIALLY_FILLED
-        }
+        order.status =
+            if (order.remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                OrderStatus.FILLED
+            } else {
+                OrderStatus.PARTIALLY_FILLED
+            }
         order.updatedAt = java.time.Instant.now()
     }
 }

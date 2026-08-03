@@ -8,8 +8,13 @@ import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.util.UUID
 
-class UnbalancedTransactionException(message: String) : RuntimeException(message)
-class InsufficientFundsException(message: String) : RuntimeException(message)
+class UnbalancedTransactionException(
+    message: String,
+) : RuntimeException(message)
+
+class InsufficientFundsException(
+    message: String,
+) : RuntimeException(message)
 
 /**
  * The only place in the codebase allowed to write to `ledger_entries`.
@@ -23,7 +28,6 @@ class InsufficientFundsException(message: String) : RuntimeException(message)
 class LedgerService(
     private val ledgerEntryRepository: LedgerEntryRepository,
 ) {
-
     data class LedgerLine(
         val accountId: UUID,
         val amount: BigDecimal,
@@ -36,13 +40,21 @@ class LedgerService(
      * Returns the transactionId used to tie the rows together.
      */
     @Transactional
-    fun postTransaction(lines: List<LedgerLine>, transactionId: UUID = UUID.randomUUID(), allowOverdraft: Boolean = false): UUID {
+    fun postTransaction(
+        lines: List<LedgerLine>,
+        transactionId: UUID = UUID.randomUUID(),
+        allowOverdraft: Boolean = false,
+    ): UUID {
         require(lines.isNotEmpty()) { "A ledger transaction needs at least one line" }
 
-        val totalCredits = lines.filter { it.direction == EntryDirection.CREDIT }
-            .fold(BigDecimal.ZERO) { acc, l -> acc + l.amount }
-        val totalDebits = lines.filter { it.direction == EntryDirection.DEBIT }
-            .fold(BigDecimal.ZERO) { acc, l -> acc + l.amount }
+        val totalCredits =
+            lines
+                .filter { it.direction == EntryDirection.CREDIT }
+                .fold(BigDecimal.ZERO) { acc, l -> acc + l.amount }
+        val totalDebits =
+            lines
+                .filter { it.direction == EntryDirection.DEBIT }
+                .fold(BigDecimal.ZERO) { acc, l -> acc + l.amount }
 
         if (totalCredits.compareTo(totalDebits) != 0) {
             throw UnbalancedTransactionException(
@@ -52,7 +64,8 @@ class LedgerService(
 
         if (!allowOverdraft) {
             // Group debits by account so we validate the *net* effect, not each line in isolation.
-            lines.filter { it.direction == EntryDirection.DEBIT }
+            lines
+                .filter { it.direction == EntryDirection.DEBIT }
                 .groupBy { it.accountId }
                 .forEach { (accountId, debitLines) ->
                     val debitTotal = debitLines.fold(BigDecimal.ZERO) { acc, l -> acc + l.amount }

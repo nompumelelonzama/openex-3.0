@@ -8,7 +8,6 @@ import java.math.BigDecimal
 import java.util.UUID
 
 interface LedgerEntryRepository : JpaRepository<LedgerEntry, UUID> {
-
     fun findAllByTransactionId(transactionId: UUID): List<LedgerEntry>
 
     // CREDIT counts positive, DEBIT counts negative -> current balance for the account.
@@ -21,5 +20,7 @@ interface LedgerEntryRepository : JpaRepository<LedgerEntry, UUID> {
         WHERE le.accountId = :accountId
         """,
     )
-    fun balanceOf(@Param("accountId") accountId: UUID): BigDecimal
+    fun balanceOf(
+        @Param("accountId") accountId: UUID,
+    ): BigDecimal
 }

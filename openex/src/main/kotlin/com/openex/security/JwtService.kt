@@ -17,13 +17,18 @@ class JwtService(
 ) {
     // HS256 requires a >= 256-bit (32 byte) key; pad short dev secrets so local/dev
     // configs don't crash, while still using the full production secret when it's long enough.
-    private val key: SecretKey = Keys.hmacShaKeyFor(
-        secret.toByteArray().let { bytes -> if (bytes.size >= 32) bytes else bytes.copyOf(32) },
-    )
+    private val key: SecretKey =
+        Keys.hmacShaKeyFor(
+            secret.toByteArray().let { bytes -> if (bytes.size >= 32) bytes else bytes.copyOf(32) },
+        )
 
-    fun generateToken(userId: UUID, email: String): String {
+    fun generateToken(
+        userId: UUID,
+        email: String,
+    ): String {
         val now = Instant.now()
-        return Jwts.builder()
+        return Jwts
+            .builder()
             .subject(userId.toString())
             .claim("email", email)
             .issuedAt(Date.from(now))
@@ -37,14 +42,22 @@ class JwtService(
     fun extractUserId(token: String): UUID? =
         runCatching {
             UUID.fromString(
-                Jwts.parser().verifyWith(key).build()
-                    .parseSignedClaims(token).payload.subject,
+                Jwts
+                    .parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .payload.subject,
             )
         }.getOrNull()
 
     fun isValid(token: String): Boolean =
         runCatching {
-            Jwts.parser().verifyWith(key).build().parseSignedClaims(token)
+            Jwts
+                .parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
             true
         }.getOrDefault(false)
 }

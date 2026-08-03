@@ -17,13 +17,12 @@ import org.springframework.web.bind.annotation.RestController
 class WalletController(
     private val walletService: WalletService,
 ) {
-
     @GetMapping
-    fun getBalances(): ResponseEntity<List<BalanceResponse>> =
-        ResponseEntity.ok(walletService.getBalances(CurrentUser.id()))
+    fun getBalances(): ResponseEntity<List<BalanceResponse>> = ResponseEntity.ok(walletService.getBalances(CurrentUser.id()))
 
     /** Simulated-funds faucet — deposits are minted from the system account, see WalletService. */
     @PostMapping("/deposit")
-    fun deposit(@Valid @RequestBody request: DepositRequest): ResponseEntity<BalanceResponse> =
-        ResponseEntity.ok(walletService.deposit(CurrentUser.id(), request.currency, request.amount))
+    fun deposit(
+        @Valid @RequestBody request: DepositRequest,
+    ): ResponseEntity<BalanceResponse> = ResponseEntity.ok(walletService.deposit(CurrentUser.id(), request.currency, request.amount))
 }

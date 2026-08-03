@@ -1,7 +1,6 @@
 package com.openex.integration
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.openex.dto.LoginRequest
 import com.openex.dto.RegisterRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -26,7 +25,6 @@ import java.util.UUID
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class OrderIdempotencyIntegrationTest {
-
     @Autowired
     lateinit var mockMvc: MockMvc
 
@@ -40,19 +38,23 @@ class OrderIdempotencyIntegrationTest {
         val email = "trader-${UUID.randomUUID()}@example.com"
         val registerBody = objectMapper.writeValueAsString(RegisterRequest(email, "password123"))
 
-        val registerResult = mockMvc.perform(
-            post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(registerBody),
-        ).andExpect(status().isCreated).andReturn()
+        val registerResult =
+            mockMvc
+                .perform(
+                    post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(registerBody),
+                ).andExpect(status().isCreated)
+                .andReturn()
 
         jwt = objectMapper.readTree(registerResult.response.contentAsString).get("token").asText()
 
         // Give the account enough USD to cover the test order.
-        mockMvc.perform(
-            post("/api/wallets/deposit")
-                .header("Authorization", "Bearer $jwt")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"currency":"USD","amount":100000}"""),
-        ).andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/wallets/deposit")
+                    .header("Authorization", "Bearer $jwt")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"currency":"USD","amount":100000}"""),
+            ).andExpect(status().isOk)
     }
 
     @Test
@@ -60,23 +62,33 @@ class OrderIdempotencyIntegrationTest {
         val idempotencyKey = UUID.randomUUID().toString()
         val orderBody = """{"symbol":"BTC-USD","side":"BUY","type":"LIMIT","price":50000,"quantity":0.01}"""
 
-        val first = mockMvc.perform(
-            post("/api/orders")
-                .header("Authorization", "Bearer $jwt")
-                .header("Idempotency-Key", idempotencyKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(orderBody),
-        ).andExpect(status().isCreated).andReturn().response.contentAsString
+        val first =
+            mockMvc
+                .perform(
+                    post("/api/orders")
+                        .header("Authorization", "Bearer $jwt")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody),
+                ).andExpect(status().isCreated)
+                .andReturn()
+                .response.contentAsString
 
-        val second = mockMvc.perform(
-            post("/api/orders")
-                .header("Authorization", "Bearer $jwt")
-                .header("Idempotency-Key", idempotencyKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(orderBody),
-        ).andExpect(status().isCreated)
-            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Idempotency-Replayed", "true"))
-            .andReturn().response.contentAsString
+        val second =
+            mockMvc
+                .perform(
+                    post("/api/orders")
+                        .header("Authorization", "Bearer $jwt")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody),
+                ).andExpect(status().isCreated)
+                .andExpect(
+                    org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header()
+                        .string("Idempotency-Replayed", "true"),
+                ).andReturn()
+                .response.contentAsString
 
         assertEquals(first, second, "retried request must return the exact same order, not create a new one")
 
@@ -89,20 +101,22 @@ class OrderIdempotencyIntegrationTest {
     fun `same key with a different request body is rejected with 409`() {
         val idempotencyKey = UUID.randomUUID().toString()
 
-        mockMvc.perform(
-            post("/api/orders")
-                .header("Authorization", "Bearer $jwt")
-                .header("Idempotency-Key", idempotencyKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"symbol":"BTC-USD","side":"BUY","type":"LIMIT","price":50000,"quantity":0.01}"""),
-        ).andExpect(status().isCreated)
+        mockMvc
+            .perform(
+                post("/api/orders")
+                    .header("Authorization", "Bearer $jwt")
+                    .header("Idempotency-Key", idempotencyKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"symbol":"BTC-USD","side":"BUY","type":"LIMIT","price":50000,"quantity":0.01}"""),
+            ).andExpect(status().isCreated)
 
-        mockMvc.perform(
-            post("/api/orders")
-                .header("Authorization", "Bearer $jwt")
-                .header("Idempotency-Key", idempotencyKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"symbol":"BTC-USD","side":"BUY","type":"LIMIT","price":51000,"quantity":0.02}"""),
-        ).andExpect(status().isConflict)
+        mockMvc
+            .perform(
+                post("/api/orders")
+                    .header("Authorization", "Bearer $jwt")
+                    .header("Idempotency-Key", idempotencyKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"symbol":"BTC-USD","side":"BUY","type":"LIMIT","price":51000,"quantity":0.02}"""),
+            ).andExpect(status().isConflict)
     }
 }

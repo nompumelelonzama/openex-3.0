@@ -13,7 +13,7 @@ data class CreateOrderRequest(
     @field:NotBlank val symbol: String,
     @field:NotNull val side: OrderSide,
     @field:NotNull val type: OrderType,
-    val price: BigDecimal? = null,          // required for LIMIT, ignored for MARKET
+    val price: BigDecimal? = null, // required for LIMIT, ignored for MARKET
     @field:DecimalMin(value = "0.00000001") val quantity: BigDecimal,
 )
 
