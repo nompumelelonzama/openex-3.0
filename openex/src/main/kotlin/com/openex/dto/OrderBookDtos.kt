@@ -11,8 +11,10 @@ data class PriceLevel(
 
 data class OrderBookSnapshot(
     val symbol: String,
-    val bids: List<PriceLevel>, // highest price first
-    val asks: List<PriceLevel>, // lowest price first
+    // highest price first
+    val bids: List<PriceLevel>,
+    // lowest price first
+    val asks: List<PriceLevel>,
     val timestamp: Instant = Instant.now(),
 )
 

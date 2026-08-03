@@ -46,7 +46,8 @@ class WalletService(
             toAccountId = userAccount.id,
             amount = amount,
             memo = "faucet deposit",
-            allowOverdraft = true, // the mint account is allowed to go negative — it's not real money
+            // the mint account is allowed to go negative -- it's not real money
+            allowOverdraft = true,
         )
 
         return BalanceResponse(currency, ledgerService.balanceOf(userAccount.id))
