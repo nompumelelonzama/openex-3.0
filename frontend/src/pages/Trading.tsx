@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { apiFetch, getAuthHeaders } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
+import OrderBook from '../components/OrderBook'
 
 type Side = 'BUY' | 'SELL'
 type OrderType = 'LIMIT' | 'MARKET'
@@ -126,6 +127,7 @@ export default function Trading() {
           {loading ? 'Submitting...' : `Place ${side} Order`}
         </button>
       </form>
+        <OrderBook symbol={symbol} token={token} />
     </div>
   )
 }
