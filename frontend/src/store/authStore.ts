@@ -6,8 +6,20 @@ interface AuthState {
   logout: () => void
 }
 
+const STORAGE_KEY = 'openex_token'
+
 export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  setToken: (token) => set({ token }),
-  logout: () => set({ token: null }),
+  token: sessionStorage.getItem(STORAGE_KEY),
+  setToken: (token) => {
+    if (token) {
+      sessionStorage.setItem(STORAGE_KEY, token)
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY)
+    }
+    set({ token })
+  },
+  logout: () => {
+    sessionStorage.removeItem(STORAGE_KEY)
+    set({ token: null })
+  },
 }))

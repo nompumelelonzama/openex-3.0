@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 
-export default function Login() {
+export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -16,14 +16,18 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      const data = await apiFetch('/api/auth/login', {
+      const data = await apiFetch('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       })
-      setToken(data.token)
-      navigate('/')
+      if (data?.token) {
+        setToken(data.token)
+        navigate('/')
+      } else {
+        navigate('/login')
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -31,7 +35,7 @@ export default function Login() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '360px' }}>
-      <h1>Login</h1>
+      <h1>Register</h1>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <input
           type="email"
@@ -49,11 +53,11 @@ export default function Login() {
         />
         {error && <p style={{ color: 'red' }}>{error}</p>}
         <button type="submit" disabled={loading}>
-          {loading ? 'Logging in...' : 'Log In'}
+          {loading ? 'Creating account...' : 'Register'}
         </button>
       </form>
       <p style={{ marginTop: '1rem' }}>
-        No account? <Link to="/register">Register</Link>
+        Already have an account? <Link to="/login">Log in</Link>
       </p>
     </div>
   )
