@@ -1,10 +1,11 @@
 """
-OpenEx analytics microservice (Week 3, Day 11-12).
+OpenEx analytics microservice (Week 3, Days 11-13).
 
 Exposes simulated market data as clean JSON arrays so the React frontend
 can chart price + moving averages without needing a real exchange feed.
 Also exposes an AI trading assistant chat endpoint backed by a local
-Ollama model via LangChain.
+Ollama model via LangChain, with a tool that queries the user's real
+wallet balances from the Kotlin API.
 """
 
 from __future__ import annotations
@@ -67,14 +68,13 @@ def chat() -> tuple[dict, int]:
     if not message:
         return {"error": "Field 'message' is required and cannot be empty."}, 400
 
-    # Forward the caller's JWT (if any) so the assistant's wallet tool can
-    # call the Kotlin backend as this user. No token just means the tool
-    # will decline to look anything up -- chat still works either way.
     auth_header = request.headers.get("Authorization", "")
-    bearer_token = auth_header.removeprefix("Bearer ").strip() or None
+    if not auth_header.startswith("Bearer "):
+        return {"error": "Missing or malformed Authorization header (expected 'Bearer <jwt>')."}, 401
+    jwt_token = auth_header.removeprefix("Bearer ")
 
     try:
-        reply = ai_assistant.chat(message, history=history, bearer_token=bearer_token)
+        reply = ai_assistant.chat(message, jwt_token, history=history)
     except Exception as exc:  # Ollama down, model not pulled, connection refused, etc.
         return {
             "error": "Could not reach the local Ollama model. Is Ollama running "
