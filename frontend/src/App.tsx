@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import NavBar from './components/NavBar'
 import ProtectedRoute from './components/ProtectedRoute'
+import ChatWidget from './components/ChatWidget'
 import Dashboard from './pages/Dashboard'
 import Trading from './pages/Trading'
 import Login from './pages/Login'
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Routes>
+      <ChatWidget />
     </BrowserRouter>
   )
 }
