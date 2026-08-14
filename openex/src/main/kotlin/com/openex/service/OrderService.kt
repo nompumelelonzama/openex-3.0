@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
+
 @Service
 class OrderService(
     private val matchingEngineService: MatchingEngineService,
@@ -37,6 +38,7 @@ class OrderService(
     fun getOrderHistory(userId: UUID): List<OrderResponse> =
         orderRepository.findAllByUserIdOrderByCreatedAtDesc(userId).map { it.toResponse() }
 }
+
 fun Order.toResponse() =
     OrderResponse(
         id = id,
