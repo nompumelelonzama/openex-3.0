@@ -1,0 +1,95 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: openex-db
+    environment:
+      POSTGRES_USER: openex
+      POSTGRES_PASSWORD: openex
+      POSTGRES_DB: openex
+    ports:
+      - "5432:5432"
+    volumes:
+      - openex-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openex -d openex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: openex-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./openex
+      dockerfile: Dockerfile
+    container_name: openex-api
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/openex
+      SPRING_DATASOURCE_USERNAME: openex
+      SPRING_DATASOURCE_PASSWORD: openex
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      JWT_SECRET: change-me-in-prod-please-this-is-a-dev-secret-value
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  analytics:
+    build:
+      context: ./analytics
+      dockerfile: Dockerfile
+    container_name: openex-analytics
+    environment:
+      # host.docker.internal lets this container reach Ollama, which runs natively
+      # on the host machine rather than in Docker (see README for why).
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      KOTLIN_API_BASE_URL: http://api:8080
+      ALLOWED_ORIGIN: http://localhost:5173
+    ports:
+      - "5000:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/actuator/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: openex-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy
+
+volumes:
+  openex-db-data:
