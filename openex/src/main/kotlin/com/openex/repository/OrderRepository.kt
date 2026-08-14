@@ -13,5 +13,5 @@ interface OrderRepository : JpaRepository<Order, UUID> {
         statuses: List<OrderStatus>,
     ): List<Order>
 
-    fun findAllByUserId(userId: UUID): List<Order>
+    fun findAllByUserIdOrderByCreatedAtDesc(userId: UUID): List<Order>
 }

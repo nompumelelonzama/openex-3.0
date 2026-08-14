@@ -1,17 +1,17 @@
 package com.openex.service
-
 import com.openex.dto.CreateOrderRequest
 import com.openex.dto.OrderResponse
 import com.openex.entity.Order
 import com.openex.entity.OrderType
+import com.openex.repository.OrderRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
-
 @Service
 class OrderService(
     private val matchingEngineService: MatchingEngineService,
+    private val orderRepository: OrderRepository,
 ) {
     fun createOrder(
         userId: UUID,
@@ -20,7 +20,6 @@ class OrderService(
         if (request.type == OrderType.LIMIT && request.price == null) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "price is required for LIMIT orders")
         }
-
         val order =
             Order(
                 userId = userId,
@@ -31,12 +30,13 @@ class OrderService(
                 quantity = request.quantity,
                 remainingQuantity = request.quantity,
             )
-
         val result = matchingEngineService.submit(order)
         return result.toResponse()
     }
-}
 
+    fun getOrderHistory(userId: UUID): List<OrderResponse> =
+        orderRepository.findAllByUserIdOrderByCreatedAtDesc(userId).map { it.toResponse() }
+}
 fun Order.toResponse() =
     OrderResponse(
         id = id,
@@ -47,4 +47,5 @@ fun Order.toResponse() =
         quantity = quantity,
         remainingQuantity = remainingQuantity,
         status = status,
+        createdAt = createdAt,
     )

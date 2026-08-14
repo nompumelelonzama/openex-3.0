@@ -24,15 +24,11 @@ export default function OrderBook({ symbol, token }: { symbol: string; token: st
   useEffect(() => {
     let cancelled = false
 
-    // Initial snapshot via REST so the book isn't empty while the socket connects
-    // Initial snapshot via REST so the book isn't empty while the socket connects
     apiFetch(`/api/orderbook/${symbol}`, { headers: getAuthHeaders(token) })
       .then((data) => {
         if (!cancelled) setBook(data)
       })
-      .catch(() => {
-        // non-fatal; live feed will populate it once connected
-      })
+      .catch(() => {})
 
     const client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
@@ -59,55 +55,58 @@ export default function OrderBook({ symbol, token }: { symbol: string; token: st
     }
   }, [symbol])
 
+  const depth = 8
+  const asksToShow = book ? [...book.asks].slice(0, depth).reverse() : []
+  const bidsToShow = book ? book.bids.slice(0, depth) : []
+
   return (
-    <div style={{ marginTop: '2rem' }}>
-      <h2>
-        Order Book: {symbol} <span style={{ fontSize: '0.8rem', color: connected ? 'lightgreen' : 'gray' }}>
-          {connected ? '[live]' : '[connecting]'}
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+        <h2 style={{ margin: 0 }}>{symbol} Order Book</h2>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-dim)' }}>
+          <span className={`live-dot ${connected ? '' : 'offline'}`} />
+          {connected ? 'Live' : 'Connecting...'}
         </span>
-      </h2>
-      {!book && <p>Loading order book...</p>}
+      </div>
+
+      {!book && <p style={{ color: 'var(--text-dim)' }}>Loading order book...</p>}
+
       {book && (
-        <div style={{ display: 'flex', gap: '2rem', maxWidth: '600px' }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ color: 'lightgreen' }}>Bids</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Price</th>
-                  <th style={{ textAlign: 'right' }}>Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {book.bids.map((level) => (
-                  <tr key={level.price}>
-                    <td style={{ color: 'lightgreen' }}>{level.price}</td>
-                    <td style={{ textAlign: 'right' }}>{level.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ color: 'salmon' }}>Asks</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Price</th>
-                  <th style={{ textAlign: 'right' }}>Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {book.asks.map((level) => (
-                  <tr key={level.price}>
-                    <td style={{ color: 'salmon' }}>{level.price}</td>
-                    <td style={{ textAlign: 'right' }}>{level.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Price</th>
+              <th style={{ textAlign: 'right' }}>Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {asksToShow.length === 0 && (
+              <tr>
+                <td colSpan={2} style={{ color: 'var(--text-dim)', textAlign: 'center' }}>No asks</td>
+              </tr>
+            )}
+            {asksToShow.map((level) => (
+              <tr key={`ask-${level.price}`}>
+                <td className="num" style={{ color: 'var(--sell)' }}>{level.price}</td>
+                <td className="num" style={{ textAlign: 'right' }}>{level.quantity}</td>
+              </tr>
+            ))}
+            <tr>
+              <td colSpan={2} style={{ borderBottom: '1px solid var(--border)', padding: '2px 0' }} />
+            </tr>
+            {bidsToShow.length === 0 && (
+              <tr>
+                <td colSpan={2} style={{ color: 'var(--text-dim)', textAlign: 'center' }}>No bids</td>
+              </tr>
+            )}
+            {bidsToShow.map((level) => (
+              <tr key={`bid-${level.price}`}>
+                <td className="num" style={{ color: 'var(--buy)' }}>{level.price}</td>
+                <td className="num" style={{ textAlign: 'right' }}>{level.quantity}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   )

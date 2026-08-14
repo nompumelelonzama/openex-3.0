@@ -7,6 +7,7 @@ import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.UUID
 
 data class CreateOrderRequest(
@@ -27,4 +28,5 @@ data class OrderResponse(
     val quantity: BigDecimal,
     val remainingQuantity: BigDecimal,
     val status: OrderStatus,
+    val createdAt: Instant,
 )

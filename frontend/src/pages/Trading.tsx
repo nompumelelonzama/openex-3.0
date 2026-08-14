@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { apiFetch, getAuthHeaders } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 import OrderBook from '../components/OrderBook'
+import TradeHistory from '../components/TradeHistory'
 
 type Side = 'BUY' | 'SELL'
 type OrderType = 'LIMIT' | 'MARKET'
@@ -28,6 +29,12 @@ export default function Trading() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<OrderResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+
+  useEffect(() => {
+    setError(null)
+    setSuccess(null)
+  }, [side, type])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,15 +42,8 @@ export default function Trading() {
     setSuccess(null)
     setLoading(true)
 
-    const body: Record<string, unknown> = {
-      symbol,
-      side,
-      type,
-      quantity,
-    }
-    if (type === 'LIMIT') {
-      body.price = price
-    }
+    const body: Record<string, unknown> = { symbol, side, type, quantity }
+    if (type === 'LIMIT') body.price = price
 
     try {
       const data = await apiFetch('/api/orders', {
@@ -57,6 +57,7 @@ export default function Trading() {
       setSuccess(data)
       setQuantity('')
       setPrice('')
+      setHistoryRefreshKey((k) => k + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Order submission failed')
     } finally {
@@ -64,70 +65,146 @@ export default function Trading() {
     }
   }
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '13px',
+    color: 'var(--text-dim)',
+    marginBottom: '6px',
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '6px',
+    border: '1px solid #2b3139',
+    background: '#0b0e11',
+    color: '#eaecef',
+    fontSize: '14px',
+  }
+
   return (
-    <div style={{ padding: '2rem', maxWidth: '400px' }}>
+    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
       <h1>Trading</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <label>
-          Symbol
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value)} required />
-        </label>
 
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <label>
-            <input type="radio" checked={side === 'BUY'} onChange={() => setSide('BUY')} /> Buy
-          </label>
-          <label>
-            <input type="radio" checked={side === 'SELL'} onChange={() => setSide('SELL')} /> Sell
-          </label>
-        </div>
+      <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <form
+          onSubmit={handleSubmit}
+          className="card"
+          style={{ width: '340px', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
+          <div>
+            <label style={labelStyle}>Symbol</label>
+            <select value={symbol} onChange={(e) => setSymbol(e.target.value)} style={inputStyle}>
+              <option value="BTC-USD">BTC-USD</option>
+              <option value="ETH-USD">ETH-USD</option>
+              <option value="SOL-USD">SOL-USD</option>
+            </select>
+          </div>
 
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <label>
-            <input type="radio" checked={type === 'LIMIT'} onChange={() => setType('LIMIT')} /> Limit
-          </label>
-          <label>
-            <input type="radio" checked={type === 'MARKET'} onChange={() => setType('MARKET')} /> Market
-          </label>
-        </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => setSide('BUY')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid ' + (side === 'BUY' ? 'var(--buy)' : '#2b3139'),
+                background: side === 'BUY' ? 'var(--buy)' : 'transparent',
+                color: side === 'BUY' ? '#0b0e11' : 'var(--text-dim)',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Buy
+            </button>
+            <button
+              type="button"
+              onClick={() => setSide('SELL')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid ' + (side === 'SELL' ? 'var(--sell)' : '#2b3139'),
+                background: side === 'SELL' ? 'var(--sell)' : 'transparent',
+                color: side === 'SELL' ? '#0b0e11' : 'var(--text-dim)',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Sell
+            </button>
+          </div>
 
-        {type === 'LIMIT' && (
-          <label>
-            Price
+          <div>
+            <label style={labelStyle}>Order Type</label>
+            <select value={type} onChange={(e) => setType(e.target.value as OrderType)} style={inputStyle}>
+              <option value="LIMIT">Limit</option>
+              <option value="MARKET">Market</option>
+            </select>
+          </div>
+
+          {type === 'LIMIT' && (
+            <div>
+              <label style={labelStyle}>Price</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+                required
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          <div>
+            <label style={labelStyle}>Quantity</label>
             <input
               type="number"
-              step="0.00000001"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              step="0.0001"
+              min="0"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="0.0000"
               required
+              style={inputStyle}
             />
-          </label>
-        )}
+          </div>
 
-        <label>
-          Quantity
-          <input
-            type="number"
-            step="0.00000001"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            required
-          />
-        </label>
+          {error && <p style={{ color: 'var(--sell)', margin: 0, fontSize: '13px' }}>{error}</p>}
+          {success && (
+            <p style={{ color: 'var(--buy)', margin: 0, fontSize: '13px' }}>
+              Order {success.status.toLowerCase()}: {success.side} {success.quantity} {success.symbol}
+            </p>
+          )}
 
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        {success && (
-          <p style={{ color: 'lightgreen' }}>
-            Order {success.status}: {success.side} {success.quantity} {success.symbol}
-            {success.price ? ` @ ${success.price}` : ' (market)'}
-          </p>
-        )}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: '12px',
+              borderRadius: '6px',
+              border: 'none',
+              background: side === 'BUY' ? 'var(--buy)' : 'var(--sell)',
+              color: '#0b0e11',
+              fontWeight: 700,
+              fontSize: '15px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? 'Placing...' : `${side === 'BUY' ? 'Buy' : 'Sell'} ${symbol}`}
+          </button>
+        </form>
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Submitting...' : `Place ${side} Order`}
-        </button>
-      </form>
-        <OrderBook symbol={symbol} token={token} />
+        <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <OrderBook symbol={symbol} token={token} />
+          <TradeHistory token={token} refreshKey={historyRefreshKey} />
+        </div>
+      </div>
     </div>
   )
 }

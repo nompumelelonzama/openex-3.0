@@ -5,6 +5,9 @@ Week 3, Day 12: a plain chat endpoint with a financial-assistant persona.
 Week 3, Day 13: adds a "get_wallet_balances" tool so the assistant can query
 the user's *real* simulated balances from the Kotlin API and answer with
 actual numbers instead of guessing.
+Later: adds a "get_recent_trades" tool (same pattern) and a few speed/latency
+fixes -- keeping the model resident in Ollama, capping response length, and
+trimming how much prior conversation gets resent on every turn.
 """
 
 from __future__ import annotations
@@ -21,17 +24,21 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
 KOTLIN_API_BASE_URL = os.environ.get("KOTLIN_API_BASE_URL", "http://localhost:8080")
 
-SYSTEM_PROMPT = """You are the OpenEx trading assistant, a helpful financial \
-persona embedded in a simulated crypto exchange terminal. You help users \
-understand their simulated wallet balances, orders, and basic trading \
-concepts (limit vs market orders, bids vs asks, price-time priority).
+# Only the last N turns are resent to the model each request. Keeps prompt
+# size (and therefore latency) roughly constant instead of growing with
+# every message in a long conversation.
+MAX_HISTORY_TURNS = 6
+
+SYSTEM_PROMPT = """You are the OpenEx trading assistant: a concise, accurate \
+financial persona embedded in a simulated crypto exchange terminal.
 
 Ground rules:
 - All funds and trades on this platform are simulated -- never real money.
-- Keep answers concise and terminal-appropriate (a few sentences, not essays).
-- If the user asks about their balance, wallet, or funds, use the
-  get_wallet_balances tool to fetch their real current balances rather than
-  guessing or saying you don't have access -- you do, via the tool.
+- Answer in 1-3 short sentences. This is a terminal, not a chat essay.
+- If asked about balance, wallet, or funds: call get_wallet_balances and use
+  the real numbers it returns. Never guess a balance.
+- If asked about trades, trade history, or recent activity: call
+  get_recent_trades and use the real data it returns. Never invent a trade.
 - If a tool call fails, say so plainly rather than making up numbers.
 - You are not a licensed financial advisor; for anything resembling real \
 investment advice, remind the user this is a simulated learning environment.
@@ -41,6 +48,14 @@ _llm = ChatOllama(
     model=OLLAMA_MODEL,
     base_url=OLLAMA_BASE_URL,
     temperature=0.3,
+    # Keep the model loaded in Ollama between requests -- otherwise Ollama's
+    # default 5-minute idle unload means the next message after a pause pays
+    # a full model-reload cost on top of normal inference time.
+    keep_alive="30m",
+    # Caps how many tokens the model generates per reply. Combined with the
+    # "1-3 short sentences" instruction above, this bounds worst-case latency
+    # without needing the model to reliably self-limit its own length.
+    num_predict=200,
 )
 
 
@@ -78,23 +93,62 @@ def _make_wallet_tool(jwt_token: str):
     return get_wallet_balances
 
 
+def _make_trade_history_tool(jwt_token: str):
+    """Builds a get_recent_trades tool bound to one specific user's JWT,
+    same pattern and same reasoning as the wallet tool above."""
+
+    @tool
+    def get_recent_trades() -> str:
+        """Fetch the current user's real recent trade history (both sides,
+        newest first) from the OpenEx exchange. Use this whenever the user
+        asks about trades, trade history, or recent activity."""
+        try:
+            response = requests.get(
+                f"{KOTLIN_API_BASE_URL}/api/trades",
+                headers={"Authorization": f"Bearer {jwt_token}"},
+                timeout=5,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            return f"Could not reach the trade history service: {exc}"
+
+        trades = response.json()
+        if not trades:
+            return "The user has no trades yet."
+
+        # Cap to the 5 most recent so the tool result itself stays small --
+        # a smaller tool-result also means less for the model to process
+        # before it can compose its final answer.
+        lines = [
+            f"{t['side']} {t['quantity']} {t['symbol']} @ {t['price']} ({t['createdAt']})"
+            for t in trades[:5]
+        ]
+        return "Recent trades -- " + "; ".join(lines)
+
+    return get_recent_trades
+
+
 def chat(
     user_message: str,
     jwt_token: str,
     history: list[dict[str, str]] | None = None,
 ) -> str:
     """Send a message (with optional prior turns) to the local Ollama model,
-    giving it access to a wallet-balance tool scoped to this specific user,
-    and return the assistant's final reply as plain text.
+    giving it access to wallet-balance and trade-history tools scoped to
+    this specific user, and return the assistant's final reply as plain text.
 
     `history` is a list of {"role": "user"|"assistant", "content": "..."}
-    dicts representing prior turns in the conversation, oldest first.
+    dicts representing prior turns in the conversation, oldest first. Only
+    the most recent MAX_HISTORY_TURNS are actually sent to the model.
     """
     wallet_tool = _make_wallet_tool(jwt_token)
-    agent = create_agent(_llm, tools=[wallet_tool], system_prompt=SYSTEM_PROMPT)
+    trade_tool = _make_trade_history_tool(jwt_token)
+    agent = create_agent(_llm, tools=[wallet_tool, trade_tool], system_prompt=SYSTEM_PROMPT)
+
+    trimmed_history = (history or [])[-MAX_HISTORY_TURNS:]
 
     messages: list[SystemMessage | HumanMessage | AIMessage] = []
-    for turn in history or []:
+    for turn in trimmed_history:
         role = turn.get("role")
         content = turn.get("content", "")
         if role == "user":
