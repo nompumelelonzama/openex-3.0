@@ -1,0 +1,13 @@
+.gradle/
+.git/
+*.log
+out/
+.idea/
+*.iml
+build/classes/
+build/tmp/
+build/resources/
+build/kotlin/
+build/generated/
+build/reports/
+build/test-results/

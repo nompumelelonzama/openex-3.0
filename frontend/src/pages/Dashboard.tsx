@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch, getAuthHeaders } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
+import PriceChart from '../components/PriceChart'
 
 interface Wallet {
   currency: string
@@ -89,7 +90,9 @@ export default function Dashboard() {
           {depositing ? 'Depositing...' : 'Deposit'}
         </button>
       </form>
-      {depositError && <p style={{ color: 'red' }}>{depositError}</p>}
+     {depositError && <p style={{ color: 'red' }}>{depositError}</p>}
+
+      <PriceChart symbol="BTC-USD" />
     </div>
   )
 }
