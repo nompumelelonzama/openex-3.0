@@ -15,13 +15,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @Configuration
 class SecurityConfig(
     private val jwtAuthFilter: JwtAuthFilter,
+    private val restAuthenticationEntryPoint: RestAuthenticationEntryPoint,
 ) {
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
-    // Allows the Vite dev server (localhost:5173) to call this API from the browser.
-    // curl/Postman aren't affected by CORS, which is why this only showed up once the
-    // React frontend started making real fetch() calls.
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val config =
@@ -42,6 +40,7 @@ class SecurityConfig(
             .cors { }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .exceptionHandling { it.authenticationEntryPoint(restAuthenticationEntryPoint) }
             .authorizeHttpRequests { auth ->
                 auth
                     .requestMatchers("/api/auth/**", "/actuator/health", "/ws/**", "/error")
@@ -49,7 +48,6 @@ class SecurityConfig(
                     .anyRequest()
                     .authenticated()
             }.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
-
         return http.build()
     }
 }

@@ -46,9 +46,8 @@ class OrderController(
     }
 
     @GetMapping
-    fun getOrderHistory(): ResponseEntity<List<OrderResponse>> {
+    fun getOrderHistory(): List<OrderResponse> {
         val userId = CurrentUser.id()
-        val history = orderService.getOrderHistory(userId)
-        return ResponseEntity.ok(history)
+        return orderService.getOrderHistory(userId)
     }
 }
