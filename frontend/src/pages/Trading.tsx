@@ -4,6 +4,7 @@ import { apiFetch, getAuthHeaders } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 import OrderBook from '../components/OrderBook'
 import TradeHistory from '../components/TradeHistory'
+import PriceChart from '../components/PriceChart'
 
 type Side = 'BUY' | 'SELL'
 type OrderType = 'LIMIT' | 'MARKET'
@@ -82,11 +83,30 @@ export default function Trading() {
     fontSize: '14px',
   }
 
+  const successMessage =
+    success &&
+    (success.status === 'CANCELLED'
+      ? `Market order cancelled: no matching ${side === 'BUY' ? 'sell' : 'buy'} orders were resting on the book to fill against. Market orders only fill against existing liquidity; try a limit order instead, or place one on the opposite side first.`
+      : `Order ${success.status.toLowerCase()}: ${success.side} ${success.quantity} ${success.symbol}`)
+
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
       <h1>Trading</h1>
 
+
       <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ flex: '2 1 700px', minWidth: '600px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <PriceChart symbol={symbol} />
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 300px', minWidth: '280px' }}>
+              <OrderBook symbol={symbol} token={token} />
+            </div>
+            <div style={{ flex: '1 1 300px', minWidth: '280px' }}>
+              <TradeHistory token={token} refreshKey={historyRefreshKey} />
+            </div>
+          </div>
+        </div>
+
         <form
           onSubmit={handleSubmit}
           className="card"
@@ -142,6 +162,12 @@ export default function Trading() {
               <option value="LIMIT">Limit</option>
               <option value="MARKET">Market</option>
             </select>
+            {type === 'MARKET' && (
+              <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '6px', lineHeight: 1.4 }}>
+                Market orders only fill against existing resting orders on the opposite side. If the book has no
+                liquidity to match against, the order will be cancelled instead of filled.
+              </p>
+            )}
           </div>
 
           {type === 'LIMIT' && (
@@ -176,8 +202,15 @@ export default function Trading() {
 
           {error && <p style={{ color: 'var(--sell)', margin: 0, fontSize: '13px' }}>{error}</p>}
           {success && (
-            <p style={{ color: 'var(--buy)', margin: 0, fontSize: '13px' }}>
-              Order {success.status.toLowerCase()}: {success.side} {success.quantity} {success.symbol}
+            <p
+              style={{
+                color: success.status === 'CANCELLED' ? '#f0b90b' : 'var(--buy)',
+                margin: 0,
+                fontSize: '13px',
+                lineHeight: 1.4,
+              }}
+            >
+              {successMessage}
             </p>
           )}
 
@@ -199,11 +232,6 @@ export default function Trading() {
             {loading ? 'Placing...' : `${side === 'BUY' ? 'Buy' : 'Sell'} ${symbol}`}
           </button>
         </form>
-
-        <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <OrderBook symbol={symbol} token={token} />
-          <TradeHistory token={token} refreshKey={historyRefreshKey} />
-        </div>
       </div>
     </div>
   )
