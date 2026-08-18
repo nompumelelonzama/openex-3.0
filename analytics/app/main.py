@@ -1,10 +1,10 @@
-"""
+﻿"""
 OpenEx analytics microservice (Week 3, Days 11-13).
 
 Exposes simulated market data as clean JSON arrays so the React frontend
 can chart price + moving averages without needing a real exchange feed.
-Also exposes an AI trading assistant chat endpoint backed by a local
-Ollama model via LangChain, with a tool that queries the user's real
+Also exposes an AI trading assistant chat endpoint backed by Groq's
+hosted LLM API via LangChain, with a tool that queries the user's real
 wallet balances from the Kotlin API.
 """
 
@@ -75,10 +75,9 @@ def chat() -> tuple[dict, int]:
 
     try:
         reply = ai_assistant.chat(message, jwt_token, history=history)
-    except Exception as exc:  # Ollama down, model not pulled, connection refused, etc.
+    except Exception as exc:  # Groq API down, bad/missing key, rate-limited, etc.
         return {
-            "error": "Could not reach the local Ollama model. Is Ollama running "
-                      f"and has the model been pulled? ({exc})"
+            "error": f"Could not reach the Groq API. Check GROQ_API_KEY is set correctly. ({exc})"
         }, 502
 
     return {"reply": reply}, 200
@@ -86,3 +85,4 @@ def chat() -> tuple[dict, int]:
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+

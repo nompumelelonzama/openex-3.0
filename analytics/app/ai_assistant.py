@@ -1,13 +1,16 @@
-"""
-LangChain + Ollama integration for the OpenEx AI trading assistant.
+﻿"""
+LangChain + Groq integration for the OpenEx AI trading assistant.
 
 Week 3, Day 12: a plain chat endpoint with a financial-assistant persona.
 Week 3, Day 13: adds a "get_wallet_balances" tool so the assistant can query
 the user's *real* simulated balances from the Kotlin API and answer with
 actual numbers instead of guessing.
 Later: adds a "get_recent_trades" tool (same pattern) and a few speed/latency
-fixes -- keeping the model resident in Ollama, capping response length, and
-trimming how much prior conversation gets resent on every turn.
+fixes -- capping response length and trimming how much prior conversation
+gets resent on every turn.
+Later still: swapped from a locally-hosted Ollama model to Groq's hosted
+API, so the assistant works in deployed/cloud environments without needing
+a local Ollama instance running alongside the app.
 """
 
 from __future__ import annotations
@@ -18,10 +21,10 @@ import requests
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
-from langchain_ollama import ChatOllama
+from langchain_groq import ChatGroq
 
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 KOTLIN_API_BASE_URL = os.environ.get("KOTLIN_API_BASE_URL", "http://localhost:8080")
 
 # Only the last N turns are resent to the model each request. Keeps prompt
@@ -44,18 +47,15 @@ Ground rules:
 investment advice, remind the user this is a simulated learning environment.
 """
 
-_llm = ChatOllama(
-    model=OLLAMA_MODEL,
-    base_url=OLLAMA_BASE_URL,
+_llm = ChatGroq(
+    model=GROQ_MODEL,
+    api_key=GROQ_API_KEY,
     temperature=0.3,
-    # Keep the model loaded in Ollama between requests -- otherwise Ollama's
-    # default 5-minute idle unload means the next message after a pause pays
-    # a full model-reload cost on top of normal inference time.
-    keep_alive="30m",
-    # Caps how many tokens the model generates per reply. Combined with the
-    # "1-3 short sentences" instruction above, this bounds worst-case latency
-    # without needing the model to reliably self-limit its own length.
-    num_predict=200,
+    # Groq is a hosted API, so there's no local model process to keep warm
+    # (no keep_alive concept). max_tokens replaces num_predict as the
+    # response-length cap, working with the "1-3 short sentences" system
+    # prompt instruction to bound worst-case latency.
+    max_tokens=200,
 )
 
 
@@ -133,7 +133,7 @@ def chat(
     jwt_token: str,
     history: list[dict[str, str]] | None = None,
 ) -> str:
-    """Send a message (with optional prior turns) to the local Ollama model,
+    """Send a message (with optional prior turns) to the Groq-hosted model,
     giving it access to wallet-balance and trade-history tools scoped to
     this specific user, and return the assistant's final reply as plain text.
 
