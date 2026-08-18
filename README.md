@@ -1,7 +1,7 @@
 # OpenEx 3.0
 
 A simulated crypto exchange and AI trading terminal. Kotlin/Spring Boot backend, React frontend, Flask analytics/AI microservice, and a local LLM via Ollama.
-
+https://openex-frontend.onrender.com
 ## Stack
 
 | Service | Tech | Port | Role |
