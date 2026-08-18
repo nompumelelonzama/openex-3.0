@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 
 interface ChatMessage {
@@ -6,7 +6,7 @@ interface ChatMessage {
   content: string
 }
 
-const FLASK_API_BASE = 'http://localhost:5000'
+const FLASK_API_BASE = import.meta.env.VITE_ANALYTICS_API_BASE || 'http://localhost:5000'
 
 export default function ChatWidget() {
   const token = useAuthStore((s) => s.token)
@@ -150,7 +150,7 @@ export default function ChatWidget() {
         }}
         aria-label={open ? 'Close chat' : 'Open chat'}
       >
-        {open ? '×' : '💬'}
+        {open ? 'Ã—' : 'ðŸ’¬'}
       </button>
     </div>
   )

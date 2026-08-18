@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { apiFetch, getAuthHeaders } from '../lib/api'
@@ -31,7 +31,7 @@ export default function OrderBook({ symbol, token }: { symbol: string; token: st
       .catch(() => {})
 
     const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => new SockJS((import.meta.env.VITE_API_BASE || 'http://localhost:8080') + '/ws'),
       reconnectDelay: 5000,
       onConnect: () => {
         setConnected(true)

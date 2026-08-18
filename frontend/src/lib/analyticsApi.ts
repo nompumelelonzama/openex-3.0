@@ -1,4 +1,4 @@
-const ANALYTICS_API_BASE = 'http://localhost:5000'
+﻿const ANALYTICS_API_BASE = import.meta.env.VITE_ANALYTICS_API_BASE || 'http://localhost:5000'
 
 export function getAuthHeaders(token: string | null): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {}

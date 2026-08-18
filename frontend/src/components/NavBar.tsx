@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { decodeJwtEmail } from '../lib/jwt'
@@ -17,7 +17,7 @@ export default function NavBar() {
 
     async function checkHealth() {
       try {
-        const res = await fetch('http://localhost:8080/actuator/health')
+        const res = await fetch((import.meta.env.VITE_API_BASE || 'http://localhost:8080') + '/actuator/health')
         if (!cancelled) setApiOnline(res.ok)
       } catch {
         if (!cancelled) setApiOnline(false)

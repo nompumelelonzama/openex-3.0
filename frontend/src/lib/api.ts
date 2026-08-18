@@ -1,6 +1,6 @@
-import { useAuthStore } from '../store/authStore'
+﻿import { useAuthStore } from '../store/authStore'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080'
 
 export function getAuthHeaders(token: string | null): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {}
